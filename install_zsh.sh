@@ -1,31 +1,33 @@
 #!/bin/bash
 set -euo pipefail
 
-# Arch check
+# --- Checks -------------------------------------------------------------------
 if [[ ! -f /etc/arch-release ]]; then
   echo "Скрипт рассчитан на Arch Linux."; exit 1
 fi
 
-echo "==> Обновляем систему и ставим пакеты"
-sudo pacman -Syu --noconfirm zsh git curl neovim zoxide eza fzf fd bat
+# --- Packages -----------------------------------------------------------------
+echo "==> Обновляем систему и устанавливаем пакеты"
+sudo pacman -Syu --noconfirm --needed zsh git curl neovim zoxide eza fzf fd bat
 
-# Paths
+# --- Paths --------------------------------------------------------------------
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH/custom}"
 
-# oh-my-zsh
+# --- oh-my-zsh ----------------------------------------------------------------
 if [[ ! -d "$ZSH" ]]; then
   echo "==> Устанавливаем oh-my-zsh"
   git clone https://github.com/ohmyzsh/ohmyzsh.git "$ZSH"
 fi
 
-# Powerlevel10k
+# --- Powerlevel10k ------------------------------------------------------------
 if [[ ! -d "$ZSH_CUSTOM/themes/powerlevel10k" ]]; then
   echo "==> Устанавливаем Powerlevel10k"
   git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
     "$ZSH_CUSTOM/themes/powerlevel10k"
 fi
 
+# --- Plugins ------------------------------------------------------------------
 install_plugin() {
   local repo="$1" dest="$2"
   if [[ ! -d "$dest" ]]; then
@@ -34,14 +36,13 @@ install_plugin() {
   fi
 }
 
-# Zsh plugins
-install_plugin https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-install_plugin https://github.com/zsh-users/zsh-history-substring-search "$ZSH_CUSTOM/plugins/zsh-history-substring-search"
-install_plugin https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-install_plugin https://github.com/zsh-users/zsh-completions "$ZSH_CUSTOM/plugins/zsh-completions"
-install_plugin https://github.com/matthiasha/zsh-uv-env "$ZSH_CUSTOM/plugins/zsh-uv-env"
+install_plugin https://github.com/zsh-users/zsh-autosuggestions           "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+install_plugin https://github.com/zsh-users/zsh-history-substring-search  "$ZSH_CUSTOM/plugins/zsh-history-substring-search"
+install_plugin https://github.com/zsh-users/zsh-syntax-highlighting       "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+install_plugin https://github.com/zsh-users/zsh-completions               "$ZSH_CUSTOM/plugins/zsh-completions"
+install_plugin https://github.com/matthiasha/zsh-uv-env                   "$ZSH_CUSTOM/plugins/zsh-uv-env"
 
-# Минимальный кастомный плагин uv (completions для uv/uvx)
+# Кастомный плагин uv (completions для uv/uvx)
 if [[ ! -d "$ZSH_CUSTOM/plugins/uv" ]]; then
   echo "==> Создаём кастомный плагин uv"
   mkdir -p "$ZSH_CUSTOM/plugins/uv"
@@ -56,29 +57,29 @@ fi
 PLUG
 fi
 
-# UV installer / update
+# --- UV -----------------------------------------------------------------------
 if ! command -v uv >/dev/null 2>&1; then
   echo "==> Устанавливаем uv"
   curl -LsSf https://astral.sh/uv/install.sh | sh
 else
-  echo "==> Обновляем uv"
+  echo "==> Обновляем uv (если доступно)"
   uv self update || true
 fi
 
-# NVM
+# --- NVM ----------------------------------------------------------------------
 if ! command -v nvm >/dev/null 2>&1; then
   echo "==> Устанавливаем nvm"
   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
 fi
 
-# Backup .zshrc
+# --- .zshrc -------------------------------------------------------------------
 if [[ -f "$HOME/.zshrc" ]]; then
   cp "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%Y%m%d%H%M%S)"
 fi
 
 echo "==> Пишем ~/.zshrc"
 cat > "$HOME/.zshrc" <<'EOF'
-# p10k instant prompt
+# Enable Powerlevel10k instant prompt (должно быть вверху).
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
@@ -106,10 +107,10 @@ plugins=(
   git
   zsh-autosuggestions
   zsh-history-substring-search
-  zsh-syntax-highlighting    # держи в конце совместимости
+  zsh-syntax-highlighting     # должен загружаться последним среди подсветок
   zsh-completions
   fzf
-  uv                         # наш кастомный плагин из $ZSH_CUSTOM/plugins/uv
+  uv                          # кастомный плагин ($ZSH_CUSTOM/plugins/uv)
   zsh-uv-env
 )
 source $ZSH/oh-my-zsh.sh
@@ -117,11 +118,11 @@ source $ZSH/oh-my-zsh.sh
 # zoxide
 eval "$(zoxide init --cmd cd zsh)"
 
-# --- helpers: fd/bat имя бинаря может отличаться на разных дистрибутивах ---
+# Определяем корректные имена бинарей bat/fd (для переносимости)
 if command -v batcat >/dev/null 2>&1; then BAT_CMD=batcat; else BAT_CMD=bat; fi
 if command -v fdfind  >/dev/null 2>&1; then FD_CMD=fdfind; else FD_CMD=fd;  fi
 
-# aliases
+# Алиасы
 alias lsp="eza --tree --level=1 --icons=always -l --octal-permissions"
 alias ls="eza --tree --level=1 --icons=always --no-time --no-user --no-permissions"
 alias fd="$FD_CMD"
@@ -130,7 +131,7 @@ alias ctx='dumpctx'
 alias vsc='code . --reuse-window'
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-# PATH utils
+# PATH
 pathadd() { [[ ":$PATH:" != *":$1:"* ]] && PATH="$1:$PATH"; }
 pathadd "$HOME/.local/bin"
 pathadd "/usr/local/nvim/bin"
@@ -140,7 +141,7 @@ export NVM_DIR="$HOME/.nvm"
 [[ -s "$NVM_DIR/nvm.sh" ]] && . "$NVM_DIR/nvm.sh"
 [[ -s "$NVM_DIR/bash_completion" ]] && . "$NVM_DIR/bash_completion"
 
-# Пользовательские сниппеты
+# Сниппеты
 dumpctx() {
   local ignore_patterns=(
     ".git" ".vscode" "certs" "*.key" "*.crt" "*.pem" "*.env" ".venv"
@@ -165,7 +166,32 @@ dumpctx() {
 [[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
 EOF
 
-echo "==> Делаем zsh логином по умолчанию (нужен пароль)"
-chsh -s "$(command -v zsh)"
+# --- Login shell --------------------------------------------------------------
+echo "==> Делаем zsh логином по умолчанию"
+ZSH_BIN="$(command -v zsh)"
+if [[ -z "$ZSH_BIN" ]]; then
+  echo "zsh не найден в PATH"; exit 1
+fi
 
-echo "Готово. Перезапусти терминал."
+# гарантируем наличие пути в /etc/shells
+if [[ ! -f /etc/shells ]]; then
+  sudo touch /etc/shells
+fi
+if ! grep -qx "$ZSH_BIN" /etc/shells; then
+  echo "==> Добавляю $ZSH_BIN в /etc/shells"
+  echo "$ZSH_BIN" | sudo tee -a /etc/shells >/dev/null
+fi
+
+# меняем shell, если он ещё не zsh
+current_shell="$(getent passwd "$USER" | cut -d: -f7 || true)"
+if [[ "$current_shell" != "$ZSH_BIN" ]]; then
+  if chsh -s "$ZSH_BIN"; then
+    echo "==> chsh: OK"
+  else
+    echo "==> chsh не удался, пробую usermod"
+    sudo usermod -s "$ZSH_BIN" "$USER" || {
+      echo "Не удалось задать shell. Установите вручную: chsh -s $ZSH_BIN"; exit 1; }
+  fi
+fi
+
+echo "Готово. Перезапусти терминал (или перелогинься) и проверь: echo \$SHELL"
